@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as cmakeToolsApi from 'vscode-cmake-tools';
 
 
-async function getBuildDir() {
+async function getProject() {
   let cmakeTools = await cmakeToolsApi.getCMakeToolsApi(cmakeToolsApi.Version.v1);
   if (!cmakeTools) {
     vscode.window.showErrorMessage('Could not find CMakeTools extensions');
@@ -13,19 +13,31 @@ async function getBuildDir() {
     return;
   }
 
-  let project = await cmakeTools.getProject(workspaceFolders[0].uri);
+  return cmakeTools.getProject(workspaceFolders[0].uri);
+}
+
+
+async function getBuildDir() {
+  let project = await getProject();
   if (!project) {
     vscode.window.showErrorMessage('Could not find any CMake project in the workspace root directory');
     return;
   }
 
+
   return project.getBuildDirectory();
 }
 
 export function activate(context: vscode.ExtensionContext) {
+  getProject().then(project => {
+    if (project) {
+      project.onSelectedConfigurationChanged(type => {
+        vscode.commands.executeCommand('clangd-cmake.restart-clangd');
+      });
+    }
+  });
 
   const disposable = vscode.commands.registerCommand('clangd-cmake.restart-clangd', () => {
-    let cmakeTools = cmakeToolsApi.getCMakeToolsApi(cmakeToolsApi.Version.v1);
 
     getBuildDir().then(buildDir => {
 
